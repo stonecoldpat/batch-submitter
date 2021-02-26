@@ -1,4 +1,5 @@
 /* External Imports */
+import { Promise as bPromise } from 'bluebird'
 import { BigNumber, Signer, ethers, Wallet, Contract } from 'ethers'
 import {
   TransactionResponse,
@@ -259,11 +260,11 @@ export class TransactionBatchSubmitter extends BatchSubmitter {
     // For now we need to update our internal `lastL1BlockNumber` value
     // which is used when submitting batches.
     this._updateLastL1BlockNumber() // TODO: Remove this
-    let batch: Batch = []
-    for (let i = startBlock; i < endBlock; i++) {
-      this.log.debug(`Fetching L2BatchElement ${i}`)
-      batch.push(await this._getL2BatchElement(i))
-    }
+    const blockRange = endBlock - startBlock
+    let batch: Batch = await bPromise.map([...Array(blockRange).keys()], (i) => {
+      return this._getL2BatchElement(i + startBlock)
+    }, {concurrency: 50})
+
     // Fix our batches if we are configured to. TODO: Remove this.
     batch = await this._fixBatch(batch)
     if (!(await this._validateBatch(batch))) {
